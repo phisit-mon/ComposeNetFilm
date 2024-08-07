@@ -1,6 +1,7 @@
 package com.phisit.composenetfilm.search
 
 import android.util.Log
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,9 +28,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -49,13 +52,6 @@ fun SearchScreen(
 ) {
 
     val uiState = viewModel.uiState.collectAsState()
-
-    DisposableEffect(key1 = uiState.value) {
-        Log.e("SearchScreen", "entry compose $uiState")
-        onDispose {
-            Log.e("SearchScreen", "leaves compose")
-        }
-    }
 
     SearchScreenStateful(
         modifier = modifier,
@@ -84,26 +80,31 @@ fun SearchScreenStateful(
     var searchText by remember {
         mutableStateOf("")
     }
-    var clearFocus by remember {
-        mutableStateOf(false)
-    }
 
     val listState = rememberLazyListState()
 
-    val isHasScrolled by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0
-        }
+    var isKeyboardVisible by remember {
+        mutableStateOf(false)
     }
 
-    LaunchedEffect(isHasScrolled) {
-        if (isHasScrolled) clearFocus = true
+    val focusManager = LocalFocusManager.current
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.isScrollInProgress
+        }.collect { isScrolling ->
+            if (isScrolling && isKeyboardVisible) {
+                focusManager.clearFocus()
+                isKeyboardVisible = false
+            }
+        }
     }
 
     Column(
         modifier = modifier.pointerInput(Unit) {
             detectTapGestures(onTap = {
-                clearFocus = true
+                focusManager.clearFocus()
+                isKeyboardVisible = false
             })
         },
         horizontalAlignment = Alignment.CenterHorizontally
@@ -111,7 +112,10 @@ fun SearchScreenStateful(
         SearchBar(
             value = searchText,
             placeholder = "Search your movies",
-            clearFocus = clearFocus,
+            requestFocus = true,
+            onFocusChanged = { isFocused ->
+                isKeyboardVisible = isFocused
+            },
             onValueChanged = {
                 searchText = it
             },
@@ -141,7 +145,11 @@ fun SearchScreenStateful(
                 stateList = listState,
                 movieList = movieList,
                 modifier = Modifier,
-                onClicked = onClicked,
+                onClicked = {
+                    focusManager.clearFocus()
+                    isKeyboardVisible = false
+                    onClicked(it)
+                },
                 onClickedFavorite = onClickedFavorite
             )
         }
@@ -220,7 +228,7 @@ private fun SearchScreenStatefulPreview() {
         emptyDate = false,
         movieList = movieList,
         onSearch = {},
-        onClickedFavorite = {_, _ ->},
+        onClickedFavorite = { _, _ -> },
         onClicked = {}
     )
 }

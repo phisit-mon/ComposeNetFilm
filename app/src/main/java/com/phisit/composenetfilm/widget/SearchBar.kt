@@ -1,6 +1,5 @@
 package com.phisit.composenetfilm.widget
 
-import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -16,8 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,9 +23,6 @@ import androidx.compose.ui.unit.dp
 import com.phisit.composenetfilm.AppIconPack
 import com.phisit.composenetfilm.appiconpack.Search
 import com.phisit.composenetfilm.ui.theme.ComposeNetFilmTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun SearchBar(
@@ -35,45 +30,30 @@ fun SearchBar(
     modifier: Modifier = Modifier,
     placeholder: String = "",
     enable: Boolean = true,
-    clearFocus: Boolean = false,
+    requestFocus: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Search,
     keyboardAction: KeyboardActions = KeyboardActions.Default,
+    onFocusChanged: (Boolean) -> Unit = {},
     onValueChanged: (String) -> Unit = {}
 ) {
     val focusRequester = remember {
         FocusRequester()
     }
 
-    val keyboardController = LocalSoftwareKeyboardController.current
-    val focusManager = LocalFocusManager.current
-
-    Log.e("SearchBar" , "clear focus value : $clearFocus")
-
     SideEffect {
-        if (clearFocus){
-            focusManager?.clearFocus()
-//            keyboardController?.hide()
-        } else {
+        if (requestFocus) {
             focusRequester.requestFocus()
         }
     }
 
-/*    LaunchedEffect(clearFocus) {
-        if (clearFocus) {
-            Log.e("SearchBar" , "clearFocus calling $focusManager")
-            launch(Dispatchers.Main.immediate) {
-                delay(100)
-                focusManager?.clearFocus()
-                keyboardController?.hide()
-            }
-        } else {
-            focusRequester.requestFocus()
-        }
-    }*/
     TextField(
         value = value,
-        modifier = modifier.focusRequester(focusRequester),
+        modifier = modifier
+            .focusRequester(focusRequester)
+            .onFocusChanged { focusState ->
+                onFocusChanged(focusState.isFocused)
+            },
         singleLine = true,
         enabled = enable,
         placeholder = {
@@ -95,7 +75,7 @@ fun SearchBar(
             imeAction = imeAction,
             keyboardType = keyboardType
         ),
-        keyboardActions = keyboardAction
+        keyboardActions = keyboardAction,
     )
 }
 
